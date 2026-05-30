@@ -1,9 +1,22 @@
+version: '3.8'
+
 services:
-  alert-bot:
-    build: .
-    restart: unless-stopped
-    env_file: .env
+  futures-alert:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: futures-alert:latest
+    container_name: futures-alert
+    restart: always
+    environment:
+      # Override config via env if needed (optional)
+      # FORCE: 'true'  # forces run outside market hours
     volumes:
-      - ./token.txt:/app/token.txt
-      - ./alerts.db:/app/alerts.db
-      - ./instruments_cache.csv:/app/instruments_cache.csv
+      # Mount the conditions.json (and optionally token.txt) from host for easy updates
+      - ./conditions.json:/app/conditions.json:ro
+      - ./token.txt:/app/token.txt:ro
+    # Expose any ports if you add an HTTP health endpoint (optional)
+    # ports:
+    #   - "8080:8080"
+    # Command can be overridden at runtime, default runs main.py with --force
+    command: ["python", "main.py", "--force"]

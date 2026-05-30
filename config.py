@@ -1,45 +1,77 @@
-import os
-from dotenv import load_dotenv
+import json
+from pathlib import Path
 
-# Load variables from .env file if it exists
-load_dotenv()
+# Path to the optional conditions JSON file
+_conditions_path = Path(__file__).parent / "conditions.json"
 
-UPSTOX_ACCESS_TOKEN = os.getenv("UPSTOX_ACCESS_TOKEN", "")
-UPSTOX_CLIENT_ID = os.getenv("UPSTOX_CLIENT_ID", "")
-UPSTOX_CLIENT_SECRET = os.getenv("UPSTOX_CLIENT_SECRET", "")
+# Default configuration values (same as original defaults)
+_DEFAULTS = {
+    "UPSTOX_ACCESS_TOKEN": "",
+    "UPSTOX_CLIENT_ID": "",
+    "UPSTOX_CLIENT_SECRET": "",
+    "TELEGRAM_BOT_TOKEN": "",
+    "TELEGRAM_CHAT_ID": "",
+    "BASIS_THRESHOLD": 2.0,
+    "SPREAD_MIN": 0.0,
+    "SPREAD_MAX": 0.2,
+    "BREACH_COUNT_THRESHOLD": 5,
+    "COOLDOWN_MINUTES": 15,
+    "WATCHLIST": ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK"]
+}
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
-
-# Numeric configurations
-try:
-    BASIS_THRESHOLD = float(os.getenv("BASIS_THRESHOLD", 2.0))
-except ValueError:
-    BASIS_THRESHOLD = 2.0
-
-try:
-    SPREAD_MIN = float(os.getenv("SPREAD_MIN", 0.0))
-except ValueError:
-    SPREAD_MIN = 0.0
-
-try:
-    SPREAD_MAX = float(os.getenv("SPREAD_MAX", 0.2))
-except ValueError:
-    SPREAD_MAX = 0.2
-
-try:
-    BREACH_COUNT_THRESHOLD = int(os.getenv("BREACH_COUNT_THRESHOLD", 5))
-except ValueError:
-    BREACH_COUNT_THRESHOLD = 5
-
-try:
-    COOLDOWN_MINUTES = int(os.getenv("COOLDOWN_MINUTES", 15))
-except ValueError:
-    COOLDOWN_MINUTES = 15
-
-# Watchlist symbol extraction
-watchlist_raw = os.getenv("WATCHLIST", "")
-if watchlist_raw:
-    WATCHLIST = [sym.strip().upper() for sym in watchlist_raw.split(",") if sym.strip()]
+# Load configuration from conditions.json if it exists; otherwise fall back to defaults
+if _conditions_path.is_file():
+    try:
+        with open(_conditions_path, "r", encoding="utf-8") as f:
+            _config = json.load(f)
+    except Exception:
+        _config = {}
 else:
-    WATCHLIST = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK"]
+    _config = {}
+
+# Helper to fetch a value with fallback to defaults
+def _get(key, default=None):
+    return _config.get(key, _DEFAULTS.get(key, default))
+
+# Assign configuration variables
+UPSTOX_ACCESS_TOKEN = _get("UPSTOX_ACCESS_TOKEN", "")
+UPSTOX_CLIENT_ID = _get("UPSTOX_CLIENT_ID", "")
+UPSTOX_CLIENT_SECRET = _get("UPSTOX_CLIENT_SECRET", "")
+
+TELEGRAM_BOT_TOKEN = _get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = _get("TELEGRAM_CHAT_ID", "")
+
+BASIS_THRESHOLD = float(_get("BASIS_MIN", 2.0))
+SPREAD_MIN = float(_get("SPREAD_MIN", 0.0))
+SPREAD_MAX = float(_get("SPREAD_MAX", 0.2))
+BREACH_COUNT_THRESHOLD = int(_get("BREACH_COUNT_THRESHOLD", 5))
+
+COOLDOWN_MINUTES = int(_get("COOLDOWN_MINUTES", 15))
+
+# WATCHLIST may be provided as a list or a comma‑separated string
+_watchlist = _get("WATCHLIST", None)
+if isinstance(_watchlist, str):
+    WATCHLIST = [sym.strip().upper() for sym in _watchlist.split(",") if sym.strip()]
+elif isinstance(_watchlist, list):
+    WATCHLIST = [_sym.upper() for _sym in _watchlist]
+else:
+    WATCHLIST = _DEFAULTS["WATCHLIST"]
+
+# Nested sections handling
+telegram_cfg = _config.get("TELEGRAM", {})
+if isinstance(telegram_cfg, dict):
+    TELEGRAM_BOT_TOKEN = telegram_cfg.get("BOT_TOKEN", "")
+    TELEGRAM_CHAT_ID = telegram_cfg.get("CHAT_ID", "")
+else:
+    TELEGRAM_BOT_TOKEN = ""
+    TELEGRAM_CHAT_ID = ""
+
+upstox_cfg = _config.get("UPSTOX", {})
+if isinstance(upstox_cfg, dict):
+    UPSTOX_CLIENT_ID = upstox_cfg.get("API_KEY", "")
+    UPSTOX_CLIENT_SECRET = upstox_cfg.get("API_SECRET", "")
+else:
+    UPSTOX_CLIENT_ID = ""
+    UPSTOX_CLIENT_SECRET = ""
+
+

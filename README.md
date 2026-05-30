@@ -25,8 +25,8 @@ Below is a concise explanation of each file in the project.
 ### `main.py`
 - Entry‑point for the continuous scanner.
 - Parses command‑line flags (`--force` to run outside market hours, `--watchlist` to limit symbols).
-- Loads environment variables from `.env` (`WATCHLIST`, `BASIS_MIN`, `SPREAD_MAX`, etc.).
-- Calls the pipeline defined in `alert_logic.py` and loops with a configurable `SCAN_INTERVAL`.
+- Loads configuration from `conditions.json` (including `WATCHLIST`, `BASIS_MIN`, `SPREAD_MAX`, etc.).
+- Calls the pipeline defined in `alert_logic.py` and loops with a configurable `SCAN_INTERVAL_SECONDS`.
 - Sends alerts via `telegram_bot.py` (embedded in `alert_logic`).
 - **Run**: `python main.py [--force]`
 
@@ -70,7 +70,16 @@ Below is a concise explanation of each file in the project.
 
 ---
 
-### `.env`
+73: ### `conditions.json`
+74: - Central configuration file that the application now loads exclusively.
+75: - **Key entries** (same as before):
+76:   - `UPSTOX_API_KEY`, `UPSTOX_API_SECRET`
+77:   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+78:   - `WATCHLIST` – either a list or "ALL" to scan the entire NSE F&O universe.
+79:   - `BASIS_MIN`, `SPREAD_MIN`, `SPREAD_MAX`
+80:   - `SCAN_INTERVAL_SECONDS` – seconds between scans.
+81:   - `FORCE` – boolean to force run outside market hours.
+82: - No `.env` file is required; keep credentials only in this JSON (do not commit to public repo).
 - Environment configuration (loaded with `python-dotenv`).
 - **Key entries**:
   - `UPSTOX_API_KEY`, `UPSTOX_API_SECRET`
