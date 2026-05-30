@@ -1,0 +1,20 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+
+# Environment and sensitive credentials
+.env
+token.txt
+
+# Local data cache and databases
+alerts.db
+instruments_cache.csv
+
+# IDE settings
+.vscode/
+.idea/

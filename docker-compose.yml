@@ -1,0 +1,9 @@
+services:
+  alert-bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./token.txt:/app/token.txt
+      - ./alerts.db:/app/alerts.db
+      - ./instruments_cache.csv:/app/instruments_cache.csv
