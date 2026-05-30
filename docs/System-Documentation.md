@@ -212,7 +212,7 @@ flowchart TD
 | [notifier.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/notifier.py) | Sends formatted Telegram alerts | `send_telegram()` |
 | [logger.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/logger.py) | Persists alert history to SQLite | `init_db()`, `log_alert()`, `get_recent_alerts()` |
 | [scheduler.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/scheduler.py) | Auto start/stop at market hours | `is_trading_day()`, `get_scheduler()` |
-| [auth_server.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/auth_server.py) | One-time OAuth token acquisition | Flask `/callback` endpoint |
+| [auth_server.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/auth_server.py) | Silent TOTP & OAuth token acquisition | `attempt_silent_login()`, Flask callback |
 | [main.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/main.py) | Ties everything together | Entry point |
 
 ---

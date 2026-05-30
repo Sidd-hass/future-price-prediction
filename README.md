@@ -15,10 +15,10 @@ Below is a concise explanation of each file in the project.
 ---
 
 ### `auth_server.py`
-- Implements a tiny Flask server that performs the OAuth 2.0 authorization code flow for Upstox.
-- Handles the callback, exchanges the code for an access token, and writes the token to `token.txt`.
-- Includes a fix that URL‑encodes the `redirect_uri` parameter to avoid *redirect_uri_mismatch* errors.
-- **Run**: `python auth_server.py` – opens a browser for the user to log in and authorise.
+- Implements both automatic (silent) and manual authorization flows for Upstox.
+- If automatic credentials (`UPSTOX_USERNAME`, `UPSTOX_PASSWORD`, `UPSTOX_PIN_CODE`, and `UPSTOX_TOTP_SECRET`) are configured in `.env`, it will authenticate silently using the `upstox-totp` library, write the token to `token.txt`, and exit.
+- If credentials are not configured, it starts a local Flask callback server on port 5000 and prints the login dialog URL to authorize manually in a browser.
+- **Run**: `python auth_server.py`
 
 ---
 
@@ -111,12 +111,12 @@ Below is a concise explanation of each file in the project.
    .\venv\Scripts\activate   # Windows
    pip install -r requirements.txt
    ```
-2. **Configure secrets** – copy `.env.example` to `.env` and fill in your Upstox API key/secret and Telegram bot credentials.
+2. **Configure secrets** – copy `.env.example` to `.env` and fill in your Upstox API key/secret, Telegram bot credentials, and (optionally) your automatic login credentials (`UPSTOX_USERNAME`, `UPSTOX_PASSWORD`, `UPSTOX_PIN_CODE`, and `UPSTOX_TOTP_SECRET`) for silent token generation.
 3. **Obtain an access token** (once per day)
    ```bash
    python auth_server.py
    ```
-   Follow the browser prompt; the token will be saved to `token.txt`.
+   If silent authentication credentials are set in your `.env`, this will complete instantly in the background. Otherwise, it will fallback to manual redirection and open a browser window for you to log in. The access token is saved to `token.txt`.
 4. **Run a live scan** (continuous mode)
    ```bash
    python main.py --force   # --force optional, forces run outside market hours
@@ -132,7 +132,7 @@ Below is a concise explanation of each file in the project.
 ## Extending the Project
 - To add **new alert criteria**, edit `alert_logic.check_alert_conditions`.
 - To support **different exchanges**, extend `instruments.py` to parse the relevant CSV and map symbols.
-- For **automated token refresh**, implement a scheduled TOTP generator (see the `features.md` roadmap).
+- For **automated token refresh**, a silent token generator using a TOTP secret has been integrated. Add `UPSTOX_USERNAME`, `UPSTOX_PASSWORD`, `UPSTOX_PIN_CODE`, and `UPSTOX_TOTP_SECRET` to your `.env` to enable.
 
 ---
 

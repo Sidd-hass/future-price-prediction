@@ -8,3 +8,4 @@ websocket-client>=1.6.0
 protobuf>=4.23.0
 upstox-python-sdk>=1.0.0
 pytest>=7.4.0
+upstox-totp>=0.1.0

@@ -16,7 +16,7 @@ class AlertEngine:
         Returns True if basis > BASIS_THRESHOLD
         AND SPREAD_MIN <= spread <= SPREAD_MAX
         """
-        return basis > self.basis_threshold and self.spread_min <= abs(spread) <= self.spread_max
+        return basis > self.basis_threshold and self.spread_min <= spread <= self.spread_max
 
     def noise_filter(self, symbol: str, basis: float, spread: float) -> bool:
         """
