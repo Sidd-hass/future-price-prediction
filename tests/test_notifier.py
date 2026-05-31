@@ -64,3 +64,49 @@ def test_telegram_called_once(mock_post):
     )
     
     mock_post.assert_called_once()
+
+
+@patch("requests.post")
+def test_broadcast_telegram_removes_blocked_user(mock_post, tmp_path):
+    import requests
+    from notifier import broadcast_telegram
+    from logger import init_db, register_telegram_user, get_registered_users
+    
+    db_file = tmp_path / "test_alerts.db"
+    db_path = str(db_file)
+    init_db(db_path)
+    
+    # Register two users
+    register_telegram_user(db_path, "user_ok", "ok_username")
+    register_telegram_user(db_path, "user_blocked", "blocked_username")
+    
+    # Mock post behavior:
+    # First post (to user_ok) succeeds.
+    # Second post (to user_blocked) raises 403 Forbidden HTTPError.
+    response_ok = MagicMock(status_code=200)
+    
+    response_blocked = MagicMock(status_code=403)
+    response_blocked.json.return_value = {"description": "Forbidden: bot was blocked by the user"}
+    exception_blocked = requests.HTTPError(response=response_blocked)
+    
+    mock_post.side_effect = [response_ok, exception_blocked]
+    
+    broadcast_telegram(
+        bot_token="TEST_BOT_TOKEN",
+        chat_ids=["user_ok", "user_blocked"],
+        db_path=db_path,
+        symbol="TCS",
+        spot=1000.0,
+        cur_fut=980.0,
+        nxt_fut=981.0,
+        basis=2.0,
+        spread=0.1,
+        cur_expiry="2026-06-30",
+        nxt_expiry="2026-07-28"
+    )
+    
+    # Verify user_blocked is removed from DB, but user_ok remains
+    registered = get_registered_users(db_path)
+    assert "user_ok" in registered
+    assert "user_blocked" not in registered
+

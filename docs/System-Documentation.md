@@ -64,11 +64,12 @@ graph TB
             FEED["data_feed.py<br/>WebSocket Price Consumer"]
             CALC["calculator.py<br/>Basis & Spread Formulas"]
             ENGINE["alert_logic.py<br/>Conditions + Noise Filter + Cooldown"]
+            BOT["telegram_bot.py<br/>Telegram Bot Listener"]
         end
 
         subgraph Output Phase
-            NOTIFY["notifier.py<br/>Telegram Message Sender"]
-            LOG["logger.py<br/>SQLite Alert History"]
+            NOTIFY["notifier.py<br/>Telegram Broadcaster"]
+            LOG["logger.py<br/>SQLite Handler"]
         end
 
         SCHED["scheduler.py<br/>Market Hours Controller"]
@@ -76,7 +77,7 @@ graph TB
     end
 
     subgraph Storage
-        DB[("alerts.db<br/>SQLite")]
+        DB[("alerts.db<br/>SQLite<br/>(alerts, users, config)")]
         CACHE["instruments_cache.csv"]
         TOKEN["token.txt"]
     end
@@ -89,13 +90,17 @@ graph TB
     INST -->|"cache"| CACHE
     INST -->|"instrument keys"| MAIN
     MAIN -->|"start/stop"| FEED
+    MAIN -->|"spins up"| BOT
     SCHED -->|"09:15 open / 15:30 close"| MAIN
     UPSTOX_WS -->|"live LTP ticks"| FEED
     FEED -->|"spot, cur_fut, nxt_fut"| CALC
     CALC -->|"basis%, spread%"| ENGINE
     ENGINE -->|"alert signal"| NOTIFY
     ENGINE -->|"alert signal"| LOG
-    NOTIFY -->|"POST /sendMessage"| TG
+    NOTIFY -->|"broadcasts"| TG
+    NOTIFY -->|"removes blocked users"| DB
+    BOT <-->|"polls updates"| TG
+    BOT -->|"registers subscribers"| DB
     LOG -->|"INSERT"| DB
 ```
 
@@ -204,16 +209,17 @@ flowchart TD
 
 | Module | Role | Key Functions |
 |--------|------|---------------|
-| [config.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/config.py) | Loads all settings from `.env` | Environment variables → Python constants |
-| [instruments.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/instruments.py) | Downloads & parses 92K NSE instruments | `download_instruments()`, `get_active_contracts()` |
-| [calculator.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/calculator.py) | Pure math — two formulas | `compute_basis()`, `compute_spread()` |
-| [alert_logic.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/alert_logic.py) | Brain — conditions + noise + cooldown | `AlertEngine.should_alert()` |
-| [data_feed.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/data_feed.py) | WebSocket consumer for live prices | `PriceFeed.connect()`, `_on_message()` |
-| [notifier.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/notifier.py) | Sends formatted Telegram alerts | `send_telegram()` |
-| [logger.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/logger.py) | Persists alert history to SQLite | `init_db()`, `log_alert()`, `get_recent_alerts()` |
-| [scheduler.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/scheduler.py) | Auto start/stop at market hours | `is_trading_day()`, `get_scheduler()` |
-| [auth_server.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/auth_server.py) | Silent TOTP & OAuth token acquisition | `attempt_silent_login()`, Flask callback |
-| [main.py](file:///home/meritech-219/Desktop/projects/discount-on-stock/futures-alert/main.py) | Ties everything together | Entry point |
+| [config.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/config.py) | Loads all settings from `.env` | Environment variables → Python constants |
+| [instruments.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/instruments.py) | Downloads & parses 92K NSE instruments | `download_instruments()`, `get_active_contracts()` |
+| [calculator.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/calculator.py) | Pure math — two formulas | `compute_basis()`, `compute_spread()` |
+| [alert_logic.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/alert_logic.py) | Brain — conditions + noise + cooldown | `AlertEngine.should_alert()` |
+| [data_feed.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/data_feed.py) | WebSocket consumer for live prices | `PriceFeed.connect()`, `_on_message()` |
+| [telegram_bot.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/telegram_bot.py) | Background poller for sub requests | `poll_updates()`, `start_telegram_bot_thread()` |
+| [notifier.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/notifier.py) | Sends/broadcasts Telegram alerts | `send_telegram()`, `broadcast_telegram()` |
+| [logger.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/logger.py) | Persists alerts & subscriber DB tables | `init_db()`, `register_telegram_user()`, `get_registered_users()` |
+| [scheduler.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/scheduler.py) | Auto start/stop at market hours | `is_trading_day()`, `get_scheduler()` |
+| [auth_server.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/auth_server.py) | Silent TOTP & OAuth token acquisition | `attempt_silent_login()`, Flask callback |
+| [main.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/main.py) | Ties everything together | Entry point |
 
 ---
 

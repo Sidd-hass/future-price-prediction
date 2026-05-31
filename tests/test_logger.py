@@ -73,3 +73,46 @@ def test_multiple_alerts_ordered(tmp_path):
     assert alerts[0]["symbol"] == "INFY"
     assert alerts[1]["symbol"] == "TCS"
     assert alerts[2]["symbol"] == "RELIANCE"
+
+
+def test_telegram_user_registration(tmp_path):
+    db_file = tmp_path / "test_alerts.db"
+    db_path = str(db_file)
+    init_db(db_path)
+    
+    from logger import register_telegram_user, unregister_telegram_user, get_registered_users
+    
+    # Verify initially empty
+    assert get_registered_users(db_path) == []
+    
+    # Register a user
+    register_telegram_user(db_path, "12345", "testuser", "Test", "User")
+    assert get_registered_users(db_path) == ["12345"]
+    
+    # Register another user
+    register_telegram_user(db_path, "67890", "anotheruser")
+    assert sorted(get_registered_users(db_path)) == ["12345", "67890"]
+    
+    # Unregister a user
+    unregister_telegram_user(db_path, "12345")
+    assert get_registered_users(db_path) == ["67890"]
+
+
+def test_bot_offset_management(tmp_path):
+    db_file = tmp_path / "test_alerts.db"
+    db_path = str(db_file)
+    init_db(db_path)
+    
+    from logger import get_bot_offset, set_bot_offset
+    
+    # Verify initially None
+    assert get_bot_offset(db_path) is None
+    
+    # Set offset
+    set_bot_offset(db_path, 100)
+    assert get_bot_offset(db_path) == 100
+    
+    # Update offset
+    set_bot_offset(db_path, 101)
+    assert get_bot_offset(db_path) == 101
+

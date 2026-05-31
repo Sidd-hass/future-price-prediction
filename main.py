@@ -8,9 +8,11 @@ from instruments import download_instruments, get_active_contracts
 from calculator import compute_basis, compute_spread
 from alert_logic import AlertEngine
 from data_feed import PriceFeed
-from notifier import send_telegram
-from logger import init_db, log_alert
+from notifier import send_telegram, broadcast_telegram
+from logger import init_db, log_alert, get_registered_users
 from scheduler import is_trading_day, get_scheduler
+from telegram_bot import start_telegram_bot_thread
+
 
 # Configure standard logging output to stdout
 logging.basicConfig(
@@ -97,19 +99,34 @@ def main():
         if alert_engine.should_alert(symbol, basis, spread):
             logger.info(f"🔔 Signal condition met for {symbol}! Sending notifications...")
             try:
-                # Dispatch Telegram alert
-                send_telegram(
-                    bot_token=config.TELEGRAM_BOT_TOKEN,
-                    chat_id=config.TELEGRAM_CHAT_ID,
-                    symbol=symbol,
-                    spot=spot,
-                    cur_fut=cur_fut,
-                    nxt_fut=nxt_fut,
-                    basis=basis,
-                    spread=spread,
-                    cur_expiry=instrument_map[symbol]['cur_expiry'],
-                    nxt_expiry=instrument_map[symbol]['nxt_expiry']
-                )
+                # Resolve list of chat IDs (active DB subscribers + fallback owner ID)
+                chat_ids = set()
+                if config.TELEGRAM_CHAT_ID:
+                    chat_ids.add(str(config.TELEGRAM_CHAT_ID))
+                try:
+                    active_users = get_registered_users("alerts.db")
+                    chat_ids.update(active_users)
+                except Exception as db_err:
+                    logger.error(f"Error fetching registered telegram users: {db_err}")
+                
+                if chat_ids:
+                    # Dispatch Telegram alert to all subscribers
+                    broadcast_telegram(
+                        bot_token=config.TELEGRAM_BOT_TOKEN,
+                        chat_ids=list(chat_ids),
+                        db_path="alerts.db",
+                        symbol=symbol,
+                        spot=spot,
+                        cur_fut=cur_fut,
+                        nxt_fut=nxt_fut,
+                        basis=basis,
+                        spread=spread,
+                        cur_expiry=instrument_map[symbol]['cur_expiry'],
+                        nxt_expiry=instrument_map[symbol]['nxt_expiry']
+                    )
+                else:
+                    logger.warning("No Telegram chat IDs resolved. Skipping notification dispatch.")
+
                 
                 # Write to SQLite log
                 log_alert(
@@ -160,17 +177,23 @@ def main():
     else:
         logger.info("Outside trading hours or market holiday. Waiting for schedule trigger...")
 
-    # 8. Start APScheduler blocking loop
+    # 8. Start Telegram Bot Updates Polling Thread
+    bot_thread, bot_stop_event = start_telegram_bot_thread("alerts.db", config.TELEGRAM_BOT_TOKEN)
+
+    # 9. Start APScheduler blocking loop
     scheduler = get_scheduler(market_open_fn, market_close_fn)
     logger.info("Starting scheduler loop...")
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         logger.info("Shutting down application...")
+        if bot_stop_event:
+            bot_stop_event.set()
         try:
             price_feed.disconnect()
         except Exception:
             pass
+
 
 
 if __name__ == '__main__':

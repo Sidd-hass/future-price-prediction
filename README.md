@@ -1,139 +1,97 @@
 # Futures Alert – NSE Futures & Options Scanner
 
 ## Overview
-This repository continuously scans the National Stock Exchange (NSE) Futures‑and‑Options (F&O) segment, computes **basis** (difference between spot and near‑month futures) and **spread** (difference between consecutive futures contracts), and sends a Telegram alert when the following conditions are met:
+This repository continuously scans the National Stock Exchange (NSE) Futures‑and‑Options (F&O) segment, computes **basis** (difference between spot and near‑month futures) and **spread** (difference between consecutive futures contracts), and sends real-time Telegram alerts to all registered subscribers when target conditions are met:
 
-- **Basis** > `BASIS_MIN` (default 2 %)
-- **Spread** ∈ [`SPREAD_MIN`, `SPREAD_MAX`] (default 0 % – 0.7 %)
+- **Basis** > `BASIS_MIN` (default 2%)
+- **Spread** ∈ [`SPREAD_MIN`, `SPREAD_MAX`] (default 0% – 0.7%)
 
-The system can operate in two modes:
-1. **Test mode** – works on the last‑closed market data.
-2. **Live (real‑world) mode** – fetches current LTP from Upstox and sends real alerts.
-
-Below is a concise explanation of each file in the project.
+The system supports two modes of execution:
+1. **Test/Simulated mode** (`test_all_nse.py`) – performs a one-off scan of the entire NSE F&O universe using current market prices and sends simulated/real alerts.
+2. **Live mode** (`main.py`) – runs a continuous WebSocket stream from Upstox, processes live price ticks, and broadcasts signals to subscribers.
 
 ---
 
-### `auth_server.py`
-- Implements both automatic (silent) and manual authorization flows for Upstox.
-- If automatic credentials (`UPSTOX_USERNAME`, `UPSTOX_PASSWORD`, `UPSTOX_PIN_CODE`, and `UPSTOX_TOTP_SECRET`) are configured in `.env`, it will authenticate silently using the `upstox-totp` library, write the token to `token.txt`, and exit.
-- If credentials are not configured, it starts a local Flask callback server on port 5000 and prints the login dialog URL to authorize manually in a browser.
-- **Run**: `python auth_server.py`
-
----
+## File Structure & Module Breakdown
 
 ### `main.py`
-- Entry‑point for the continuous scanner.
-- Parses command‑line flags (`--force` to run outside market hours, `--watchlist` to limit symbols).
-- Loads configuration from `conditions.json` (including `WATCHLIST`, `BASIS_MIN`, `SPREAD_MAX`, etc.).
-- Calls the pipeline defined in `alert_logic.py` and loops with a configurable `SCAN_INTERVAL_SECONDS`.
-- Sends alerts via `telegram_bot.py` (embedded in `alert_logic`).
-- **Run**: `python main.py [--force]`
+- Entry-point for the continuous scanner daemon.
+- Connects to the Upstox live price WebSocket feed and processes ticks during NSE trading hours (using `scheduler.py`).
+- Spins up a background Telegram bot poller thread to dynamically handle subscription commands.
+- Broadcasts detected arbitrage opportunities to all registered subscribers.
+- **Run**: `python main.py [--force]` (use `--force` to connect immediately outside market hours)
 
----
+### `telegram_bot.py`
+- Implements a background updates poller using standard HTTP long-polling to Telegram's `getUpdates` API.
+- Handles user subscription command flows:
+  - `/start` – Registers the user's `chat_id` in the SQLite database and sends a confirmation greeting.
+  - `/stop` – Unsubscribes the user by removing their record from the database.
+  - `/status` – Checks and reports subscription status.
+  - `/help` – Displays a helper menu of bot commands.
+
+### `notifier.py`
+- Formats and dispatches alerts via the Telegram Bot API.
+- Includes `broadcast_telegram()` which iterates over all registered subscribers.
+- **Automatic Cleanup**: Captures `403 Forbidden` (user blocked the bot) and `400` (chat not found) API errors to automatically unregister inactive or invalid chat IDs from the database, keeping the list clean.
+
+### `logger.py`
+- Manages local SQLite storage in `alerts.db`.
+- Creates and maintains the tables:
+  - `alerts` – Chronological audit trail of all generated signals and price levels.
+  - `telegram_users` – Active subscriber chat IDs, usernames, and registration timestamps.
+  - `bot_config` – State config values (e.g., last processed Telegram `update_id` offset to guarantee single-delivery of messages across restarts).
+- Provides database helper operations for main logic and the bot thread.
 
 ### `test_all_nse.py`
-- One‑off script used for the **real‑world verification** you requested.
-- Resolves **all** NSE F&O symbols (`WATCHLIST=ALL`), fetches spot & futures contracts, pulls LTPs from Upstox, computes basis/spread, prints a top‑15 table and sends real Telegram alerts for any stock meeting the thresholds.
-- Useful for a quick sanity‑check without starting the long‑running daemon.
+- A runnable verification script that fetches live prices from Upstox REST API for all NSE F&O stocks.
+- Computes basis/spread and displays a top-15 discount table in the console.
+- Resolves subscribers from `alerts.db` and dispatches test alerts.
 - **Run**: `python test_all_nse.py`
 
----
+### `auth_server.py`
+- Acquires OAuth credentials from Upstox.
+- Supports **silent (automatic) login** if Upstox credentials (`UPSTOX_USERNAME`, `UPSTOX_PASSWORD`, etc.) are configured in `.env`, using `upstox-totp` to write access tokens to `token.txt` instantly.
+- Falls back to manual authorization with a local webserver callback on port 5000 if automatic login credentials are not set.
+- **Run**: `python auth_server.py`
 
 ### `instruments.py`
-- Contains helper functions to parse the `instruments.csv` file supplied by Upstox.
-- Provides `load_instruments()`, `resolve_spot_and_futures(symbols)` and utilities to map NSE symbols to the required Upstox instrument keys.
-- Used by both `main.py` and `test_all_nse.py`.
+- Downloads and parses the instruments file from Upstox (NSE segment).
+- Caches results to avoid redownloading on every start and resolves active spot/futures contract keys.
 
----
-
-### `alert_logic.py`
-- Core business logic:
-  - `compute_basis(spot_price, fut_price)`
-  - `compute_spread(cur_fut_price, nxt_fut_price)`
-  - `check_alert_conditions(basis, spread, env)` – returns a boolean.
-  - `send_telegram_alert(symbol, basis, spread)` – posts a formatted message via the bot token defined in `.env`.
-- Centralises all thresholds and formatting, making it easy to tweak alert criteria.
-
----
-
-### `requirements.txt`
-- Lists the Python dependencies required to run the project, e.g.:
-  ```
-  flask
-  upstox-api
-  python-telegram-bot
-  python-dotenv
-  pandas
-  ```
-- Install with `pip install -r requirements.txt`.
-
----
-
-73: ### `conditions.json`
-74: - Central configuration file that the application now loads exclusively.
-75: - **Key entries** (same as before):
-76:   - `UPSTOX_API_KEY`, `UPSTOX_API_SECRET`
-77:   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-78:   - `WATCHLIST` – either a list or "ALL" to scan the entire NSE F&O universe.
-79:   - `BASIS_MIN`, `SPREAD_MIN`, `SPREAD_MAX`
-80:   - `SCAN_INTERVAL_SECONDS` – seconds between scans.
-81:   - `FORCE` – boolean to force run outside market hours.
-82: - No `.env` file is required; keep credentials only in this JSON (do not commit to public repo).
-- Environment configuration (loaded with `python-dotenv`).
-- **Key entries**:
-  - `UPSTOX_API_KEY`, `UPSTOX_API_SECRET`
-  - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-  - `WATCHLIST` – either a comma‑separated list of symbols or `ALL`.
-  - `BASIS_MIN`, `SPREAD_MIN`, `SPREAD_MAX`
-  - `SCAN_INTERVAL` – seconds between scans.
-  - `FORCE` – set to `1` to run regardless of market hours.
-- **Do not** commit this file to a public repo – it contains secrets.
-
----
-
-### `features.md`
-- A living design document that outlines planned enhancements (e.g., automated TOTP‑based token refresh, Dockerisation, CI pipelines).
-- Helpful for future contributors to see the roadmap.
-
----
-
-### `docs/`
-- Contains additional markdown documentation, such as deployment instructions, architecture diagrams, and troubleshooting tips.
-- Not required for core execution but provides a richer context for developers.
+### `config.py`
+- Loads system environment settings and alerts configurations from `.env`.
 
 ---
 
 ## Quick Start Guide
+
 1. **Install dependencies**
    ```bash
    python -m venv venv
    .\venv\Scripts\activate   # Windows
    pip install -r requirements.txt
    ```
-2. **Configure secrets** – copy `.env.example` to `.env` and fill in your Upstox API key/secret, Telegram bot credentials, and (optionally) your automatic login credentials (`UPSTOX_USERNAME`, `UPSTOX_PASSWORD`, `UPSTOX_PIN_CODE`, and `UPSTOX_TOTP_SECRET`) for silent token generation.
+2. **Configure secrets** – Copy `.env.example` to `.env` and fill in your Upstox API credentials, Telegram Bot Token, and (optionally) your Upstox login credentials to enable silent token refreshes.
 3. **Obtain an access token** (once per day)
    ```bash
    python auth_server.py
    ```
-   If silent authentication credentials are set in your `.env`, this will complete instantly in the background. Otherwise, it will fallback to manual redirection and open a browser window for you to log in. The access token is saved to `token.txt`.
-4. **Run a live scan** (continuous mode)
-   ```bash
-   python main.py --force   # --force optional, forces run outside market hours
-   ```
-5. **Run a one‑off verification** (real‑world alert)
-   ```bash
-   python test_all_nse.py
-   ```
-   The script prints a table and sends Telegram alerts for any qualifying stocks.
+4. **Subscribe to alerts**
+   - Open your Telegram bot link (e.g., `https://t.me/your_bot_name`).
+   - Tap **Start** or send `/start` to subscribe.
+5. **Run the scanner**
+   - Run a one-off F&O scan with test alerts:
+     ```bash
+     python test_all_nse.py
+     ```
+   - Start the continuous live price monitoring system:
+     ```bash
+     python main.py --force
+     ```
 
 ---
 
-## Extending the Project
-- To add **new alert criteria**, edit `alert_logic.check_alert_conditions`.
-- To support **different exchanges**, extend `instruments.py` to parse the relevant CSV and map symbols.
-- For **automated token refresh**, a silent token generator using a TOTP secret has been integrated. Add `UPSTOX_USERNAME`, `UPSTOX_PASSWORD`, `UPSTOX_PIN_CODE`, and `UPSTOX_TOTP_SECRET` to your `.env` to enable.
-
----
-
-*Happy hunting! 🎯*
+## Technical Features
+- **Dynamic Subscriber Management**: SQLite database persists registered user IDs. Adding new users doesn't require hardcoding.
+- **WebSocket Feed Integration**: Real-time Protobuf-decoded price stream from Upstox.
+- **Noise Filtering & Cooldown**: Filters out momentary price spikes (requires 5 consecutive ticks to trigger) and puts alerts on a 15-minute cooldown per stock.
