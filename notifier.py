@@ -24,7 +24,7 @@ def send_telegram(bot_token: str, chat_id: str, symbol: str, spot: float,
         f"Spot Price:     ₹{spot}\n"
         f"Cur Month Fut:  ₹{cur_fut}  ({basis:.2f}% discount)  Exp: {cur_expiry}\n"
         f"Nxt Month Fut:  ₹{nxt_fut}  ({spread:.2f}% vs cur)   Exp: {nxt_expiry}\n\n"
-        f"Basis:   {basis:.2f}%  ✅ [Threshold > 2.00%]\n"
+        f"Basis:   {basis:.2f}%  ✅ [Threshold > {config.BASIS_THRESHOLD:.2f}%]\n"
         f"Spread:  {spread:.2f}% ✅ [Threshold {config.SPREAD_MIN:.2f}% - {config.SPREAD_MAX:.2f}%]\n\n"
         "SIGNAL: BOTH CONDITIONS MET"
     )

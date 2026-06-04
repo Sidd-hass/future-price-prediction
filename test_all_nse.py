@@ -190,7 +190,7 @@ def main():
                 print("   ⚠️ No Telegram chat IDs resolved. Skipping notification dispatch.")
     else:
         print("ℹ️ No stocks in the real F&O segment currently meet the alert criteria.")
-        print("   (Basis discount > 2.0% and Calendar spread between 0.0% and 0.2%)\n")
+        print(f"   (Basis discount > {config.BASIS_THRESHOLD}% and Calendar spread between {config.SPREAD_MIN}% and {config.SPREAD_MAX}%)\n")
         
         # 8. Run simulated mock trigger to verify the alert & Telegram dispatch pipeline
         print("=" * 80)
