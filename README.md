@@ -91,6 +91,34 @@ The system supports two modes of execution:
 
 ---
 
+## Running with Docker (Recommended for 24/7 Cloud)
+
+If you are deploying this application on a cloud server for continuous monitoring, it is highly recommended to run it inside Docker.
+
+1. **Prepare configuration files**
+   Ensure `.env`, `conditions.json`, and `token.txt` are created in the project root. Also, ensure the database file exists so Docker doesn't mistakenly create a directory:
+   ```bash
+   touch alerts.db
+   ```
+2. **Build and start the container**
+   ```bash
+   docker-compose up -d --build
+   ```
+   The container will automatically restart on failure and run in the background.
+
+3. **Check the logs**
+   ```bash
+   docker-compose logs -f
+   ```
+
+4. **Updating settings**
+   If you change `.env` or `conditions.json`, you should restart the container:
+   ```bash
+   docker-compose restart
+   ```
+
+---
+
 ## Technical Features
 - **Dynamic Subscriber Management**: SQLite database persists registered user IDs. Adding new users doesn't require hardcoding.
 - **WebSocket Feed Integration**: Real-time Protobuf-decoded price stream from Upstox.

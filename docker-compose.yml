@@ -8,15 +8,13 @@ services:
     image: futures-alert:latest
     container_name: futures-alert
     restart: always
-    environment:
-      # Override config via env if needed (optional)
-      # FORCE: 'true'  # forces run outside market hours
+    env_file:
+      - .env
     volumes:
-      # Mount the conditions.json (and optionally token.txt) from host for easy updates
+      # Mount the database to persist subscribers and alert history
+      - ./alerts.db:/app/alerts.db
+      # Mount configuration and token files
       - ./conditions.json:/app/conditions.json:ro
-      - ./token.txt:/app/token.txt:ro
-    # Expose any ports if you add an HTTP health endpoint (optional)
-    # ports:
-    #   - "8080:8080"
+      - ./token.txt:/app/token.txt
     # Command can be overridden at runtime, default runs main.py with --force
     command: ["python", "main.py", "--force"]
