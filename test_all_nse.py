@@ -7,7 +7,7 @@ from urllib.parse import quote
 # 1. Load config and helper functions
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import config
-from auth_server import load_token
+
 from instruments import download_instruments, get_active_contracts
 from calculator import compute_basis, compute_spread
 from alert_logic import AlertEngine
@@ -21,10 +21,9 @@ def main():
     print("=" * 80 + "\n")
 
     # 2. Load access token
-    try:
-        token = load_token("token.txt")
-    except FileNotFoundError as e:
-        print(f"❌ Error: {e}")
+    token = config.ANALYTICS_TOKEN
+    if not token:
+        print("❌ Error: ANALYTICS_TOKEN is empty! Please configure it in your .env file.")
         sys.exit(1)
 
     # 3. Resolve F&O stock list
@@ -89,7 +88,7 @@ def main():
         try:
             response = requests.get(url, headers=headers, timeout=30)
             if response.status_code == 401:
-                print("❌ Unauthorized: Your token.txt may have expired. Please rerun auth_server.py first.")
+                print("❌ Unauthorized: Your ANALYTICS_TOKEN may have expired or is invalid. Please update it in .env first.")
                 sys.exit(1)
             response.raise_for_status()
             resp_json = response.json()

@@ -1,0 +1,11 @@
+venv/
+.git/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+instruments_cache.csv
+token.txt
+.env
+.idea/
+.vscode/

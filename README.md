@@ -4,7 +4,7 @@
 This repository continuously scans the National Stock Exchange (NSE) Futures‑and‑Options (F&O) segment, computes **basis** (difference between spot and near‑month futures) and **spread** (difference between consecutive futures contracts), and sends real-time Telegram alerts to all registered subscribers when target conditions are met:
 
 - **Basis** > `BASIS_MIN` (default 2%)
-- **Spread** ∈ [`SPREAD_MIN`, `SPREAD_MAX`] (default 0% – 0.7%)
+- **Spread** &isin; [`SPREAD_MIN`, `SPREAD_MAX`] (default 0% – 0.5%)
 
 The system supports two modes of execution:
 1. **Test/Simulated mode** (`test_all_nse.py`) – performs a one-off scan of the entire NSE F&O universe using current market prices and sends simulated/real alerts.
@@ -48,46 +48,53 @@ The system supports two modes of execution:
 - Resolves subscribers from `alerts.db` and dispatches test alerts.
 - **Run**: `python test_all_nse.py`
 
-### `auth_server.py`
-- Acquires OAuth credentials from Upstox.
-- Supports **silent (automatic) login** if Upstox credentials (`UPSTOX_USERNAME`, `UPSTOX_PASSWORD`, etc.) are configured in `.env`, using `upstox-totp` to write access tokens to `token.txt` instantly.
-- Falls back to manual authorization with a local webserver callback on port 5000 if automatic login credentials are not set.
-- **Run**: `python auth_server.py`
-
 ### `instruments.py`
 - Downloads and parses the instruments file from Upstox (NSE segment).
 - Caches results to avoid redownloading on every start and resolves active spot/futures contract keys.
 
 ### `config.py`
-- Loads system environment settings and alerts configurations from `.env`.
+- Loads system environment settings and alerts configurations from `.env` or `conditions.json`.
 
 ---
 
 ## Quick Start Guide
 
-1. **Install dependencies**
-   ```bash
-   python -m venv venv
-   .\venv\Scripts\activate   # Windows
-   pip install -r requirements.txt
-   ```
-2. **Configure secrets** – Copy `.env.example` to `.env` and fill in your Upstox API credentials, Telegram Bot Token, and (optionally) your Upstox login credentials to enable silent token refreshes.
-3. **Obtain an access token** (once per day)
-   ```bash
-   python auth_server.py
-   ```
-4. **Subscribe to alerts**
-   - Open your Telegram bot link (e.g., `https://t.me/your_bot_name`).
-   - Tap **Start** or send `/start` to subscribe.
-5. **Run the scanner**
-   - Run a one-off F&O scan with test alerts:
-     ```bash
-     python test_all_nse.py
-     ```
-   - Start the continuous live price monitoring system:
-     ```bash
-     python main.py --force
-     ```
+### 1. Clone the repository and checkout the correct branch
+```bash
+git clone -b feat/analytics-token-docker https://github.com/Sidd-hass/future-price-prediction.git
+cd future-price-prediction
+```
+
+### 2. Install dependencies
+```bash
+python -m venv venv
+.\venv\Scripts\activate   # Windows
+# source venv/bin/activate # macOS/Linux
+pip install -r requirements.txt
+```
+
+### 3. Configure secrets
+Copy `.env.example` to `.env` and fill in your Upstox `ANALYTICS_TOKEN` and Telegram Bot details:
+```env
+ANALYTICS_TOKEN=your_upstox_analytics_token_here
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+```
+Alternatively, configure them in `conditions.json` (values inside `conditions.json` will override `.env`).
+
+### 4. Subscribe to alerts
+- Open your Telegram bot link (e.g., `https://t.me/your_bot_name`).
+- Tap **Start** or send `/start` to subscribe.
+
+### 5. Run the scanner
+- Run a one-off F&O scan with test alerts:
+  ```bash
+  python test_all_nse.py
+  ```
+- Start the continuous live price monitoring system:
+  ```bash
+  python main.py --force
+  ```
 
 ---
 
@@ -95,27 +102,22 @@ The system supports two modes of execution:
 
 If you are deploying this application on a cloud server for continuous monitoring, it is highly recommended to run it inside Docker.
 
-1. **Prepare configuration files**
-   Ensure `.env`, `conditions.json`, and `token.txt` are created in the project root. Also, ensure the database file exists so Docker doesn't mistakenly create a directory:
-   ```bash
-   touch alerts.db
-   ```
-2. **Build and start the container**
-   ```bash
-   docker-compose up -d --build
-   ```
-   The container will automatically restart on failure and run in the background.
+### 1. Build and start the container
+```bash
+docker-compose up -d --build
+```
+The container will automatically restart on failure and run in the background.
 
-3. **Check the logs**
-   ```bash
-   docker-compose logs -f
-   ```
+### 2. Check the logs
+```bash
+docker-compose logs -f
+```
 
-4. **Updating settings**
-   If you change `.env` or `conditions.json`, you should restart the container:
-   ```bash
-   docker-compose restart
-   ```
+### 3. Updating settings
+If you change `.env` or `conditions.json`, you should restart the container:
+```bash
+docker-compose restart
+```
 
 ---
 

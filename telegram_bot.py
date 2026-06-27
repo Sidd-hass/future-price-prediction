@@ -80,7 +80,7 @@ def poll_updates(db_path: str, bot_token: str, stop_event: threading.Event = Non
                 set_bot_offset(db_path, offset)
                 
                 # Parse message details
-                message = update.get("message", {})
+                message = update.get("message") or update.get("channel_post", {})
                 chat = message.get("chat", {})
                 chat_id = chat.get("id")
                 text = message.get("text", "").strip()

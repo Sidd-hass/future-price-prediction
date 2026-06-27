@@ -13,6 +13,5 @@ services:
       - ./alerts.db:/app/alerts.db
       # Mount configuration and token files
       - ./conditions.json:/app/conditions.json:ro
-      - ./token.txt:/app/token.txt
     # Command can be overridden at runtime, default runs main.py with --force
     command: ["python", "main.py", "--force"]

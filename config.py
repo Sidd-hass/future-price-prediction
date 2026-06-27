@@ -27,9 +27,7 @@ def _to_int(val, default):
 # ──────────────────────────────────────────────
 # 1. Start with .env / environment variable defaults
 # ──────────────────────────────────────────────
-UPSTOX_ACCESS_TOKEN = os.getenv("UPSTOX_ACCESS_TOKEN", "")
-UPSTOX_CLIENT_ID = os.getenv("UPSTOX_CLIENT_ID", "")
-UPSTOX_CLIENT_SECRET = os.getenv("UPSTOX_CLIENT_SECRET", "")
+ANALYTICS_TOKEN = os.getenv("ANALYTICS_TOKEN", os.getenv("UPSTOX_ACCESS_TOKEN", ""))
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
@@ -57,15 +55,12 @@ if _conditions_path.is_file():
 
         # Upstox credentials (nested under "upstox")
         _upstox = _cfg.get("upstox", {})
-        if _upstox.get("UPSTOX_CLIENT_ID"):
-            UPSTOX_CLIENT_ID = _upstox["UPSTOX_CLIENT_ID"]
-        elif _upstox.get("client_id"):
-            UPSTOX_CLIENT_ID = _upstox["client_id"]
-
-        if _upstox.get("UPSTOX_CLIENT_SECRET"):
-            UPSTOX_CLIENT_SECRET = _upstox["UPSTOX_CLIENT_SECRET"]
-        elif _upstox.get("client_secret"):
-            UPSTOX_CLIENT_SECRET = _upstox["client_secret"]
+        if _upstox.get("ANALYTICS_TOKEN"):
+            ANALYTICS_TOKEN = _upstox["ANALYTICS_TOKEN"]
+        elif _upstox.get("analytics_token"):
+            ANALYTICS_TOKEN = _upstox["analytics_token"]
+        elif _upstox.get("UPSTOX_ACCESS_TOKEN"):
+            ANALYTICS_TOKEN = _upstox["UPSTOX_ACCESS_TOKEN"]
 
         # Telegram credentials (nested under "telegram")
         _tg = _cfg.get("telegram", {})
@@ -105,16 +100,14 @@ if _conditions_path.is_file():
 # ──────────────────────────────────────────────
 # 3. Startup validation – warn if critical keys are empty
 # ──────────────────────────────────────────────
-if not UPSTOX_CLIENT_ID:
-    print("[config] WARNING: UPSTOX_CLIENT_ID is empty! Login will fail.")
-if not UPSTOX_CLIENT_SECRET:
-    print("[config] WARNING: UPSTOX_CLIENT_SECRET is empty! Login will fail.")
+if not ANALYTICS_TOKEN:
+    print("[config] WARNING: ANALYTICS_TOKEN is empty! API requests will fail.")
 if not TELEGRAM_BOT_TOKEN:
     print("[config] WARNING: TELEGRAM_BOT_TOKEN is empty! Alerts will not be sent.")
 if not TELEGRAM_CHAT_ID:
     print("[config] WARNING: TELEGRAM_CHAT_ID is empty! Alerts will not be sent.")
 
-print(f"[config] UPSTOX_CLIENT_ID = {UPSTOX_CLIENT_ID[:8]}..." if UPSTOX_CLIENT_ID else "[config] UPSTOX_CLIENT_ID = (empty)")
+print(f"[config] ANALYTICS_TOKEN = {ANALYTICS_TOKEN[:8]}..." if ANALYTICS_TOKEN else "[config] ANALYTICS_TOKEN = (empty)")
 print(f"[config] TELEGRAM_BOT_TOKEN = {TELEGRAM_BOT_TOKEN[:10]}..." if TELEGRAM_BOT_TOKEN else "[config] TELEGRAM_BOT_TOKEN = (empty)")
 print(f"[config] BASIS_THRESHOLD = {BASIS_THRESHOLD}, SPREAD_MIN = {SPREAD_MIN}, SPREAD_MAX = {SPREAD_MAX}")
 print(f"[config] WATCHLIST = {WATCHLIST[:5]}{'...' if len(WATCHLIST) > 5 else ''}")

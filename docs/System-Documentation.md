@@ -47,7 +47,6 @@ graph TB
     subgraph External Services
         UPSTOX_CSV["Upstox Instruments CSV<br/>(92,000+ instruments)"]
         UPSTOX_WS["Upstox WebSocket API<br/>(Real-time price feed)"]
-        UPSTOX_AUTH["Upstox OAuth Server"]
         TG["Telegram Bot API"]
     end
 
@@ -55,7 +54,6 @@ graph TB
         direction TB
         
         subgraph Startup Phase
-            AUTH["auth_server.py<br/>OAuth Token Exchange"]
             INST["instruments.py<br/>Download & Resolve Contracts"]
             CFG["config.py<br/>Load Environment Variables"]
         end
@@ -79,13 +77,9 @@ graph TB
     subgraph Storage
         DB[("alerts.db<br/>SQLite<br/>(alerts, users, config)")]
         CACHE["instruments_cache.csv"]
-        TOKEN["token.txt"]
     end
 
-    UPSTOX_AUTH -->|"access_token"| AUTH
-    AUTH -->|"saves"| TOKEN
-    TOKEN -->|"reads"| MAIN
-    CFG -->|"watchlist + thresholds"| MAIN
+    CFG -->|"watchlist + thresholds + token"| MAIN
     UPSTOX_CSV -->|"gzip download"| INST
     INST -->|"cache"| CACHE
     INST -->|"instrument keys"| MAIN
@@ -122,16 +116,16 @@ sequenceDiagram
     participant DB as SQLite
 
     User->>Main: python main.py
-    Main->>Main: Load token.txt & config
+    Main->>Main: Load config & analytics token
     Main->>Inst: download_instruments()
     Inst->>Upstox: GET NSE.csv.gz (92K instruments)
     Upstox-->>Inst: CSV data
-    Inst-->>Main: Instrument keys for 5 stocks
+    Inst-->>Main: Instrument keys for watchlist stocks
 
     Note over Main: Wait for 09:15 IST or connect immediately
 
     Main->>Feed: connect()
-    Feed->>Upstox: WebSocket subscribe (15 keys)
+    Feed->>Upstox: WebSocket subscribe (keys)
     
     loop Every price tick during market hours
         Upstox-->>Feed: LTP update (protobuf)
@@ -209,7 +203,7 @@ flowchart TD
 
 | Module | Role | Key Functions |
 |--------|------|---------------|
-| [config.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/config.py) | Loads all settings from `.env` | Environment variables → Python constants |
+| [config.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/config.py) | Loads all settings from `.env` or `conditions.json` | Environment variables/JSON → Python constants |
 | [instruments.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/instruments.py) | Downloads & parses 92K NSE instruments | `download_instruments()`, `get_active_contracts()` |
 | [calculator.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/calculator.py) | Pure math — two formulas | `compute_basis()`, `compute_spread()` |
 | [alert_logic.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/alert_logic.py) | Brain — conditions + noise + cooldown | `AlertEngine.should_alert()` |
@@ -218,7 +212,6 @@ flowchart TD
 | [notifier.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/notifier.py) | Sends/broadcasts Telegram alerts | `send_telegram()`, `broadcast_telegram()` |
 | [logger.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/logger.py) | Persists alerts & subscriber DB tables | `init_db()`, `register_telegram_user()`, `get_registered_users()` |
 | [scheduler.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/scheduler.py) | Auto start/stop at market hours | `is_trading_day()`, `get_scheduler()` |
-| [auth_server.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/auth_server.py) | Silent TOTP & OAuth token acquisition | `attempt_silent_login()`, Flask callback |
 | [main.py](file:///c:/Users/jal/Downloads/futures-alert/futures-alert/main.py) | Ties everything together | Entry point |
 
 ---
@@ -244,7 +237,6 @@ graph LR
     
     subgraph APIs
         UP["Upstox Python SDK"]
-        FL["Flask"]
     end
     
     subgraph Scheduling
@@ -265,7 +257,6 @@ graph LR
 | Database | SQLite | Store alert history locally |
 | Real-time Feed | WebSocket + Protobuf | Receive live price ticks from Upstox |
 | HTTP | Requests | Download instruments CSV, send Telegram messages |
-| Auth | Flask | Local OAuth callback server on port 5000 |
 | Scheduling | APScheduler + pytz | Cron jobs in Asia/Kolkata timezone |
 | Config | python-dotenv | Load `.env` file variables |
 | Deployment | Docker + Docker Compose | Container-based deployment |
@@ -277,13 +268,13 @@ graph LR
 ```mermaid
 graph TB
     subgraph Docker Container
-        APP["futures-alert<br/>(Python 3.11-slim)"]
+        APP["futures-alert<br/>(Python 3.12-slim)"]
     end
 
     subgraph Mounted Volumes
-        V1["token.txt<br/>(Upstox access token)"]
         V2["alerts.db<br/>(Alert history)"]
         V3["instruments_cache.csv<br/>(Cached instruments)"]
+        V4["conditions.json<br/>(Runtime overrides)"]
     end
 
     subgraph External
@@ -291,16 +282,16 @@ graph TB
         TG["Telegram API"]
     end
 
-    V1 --> APP
     V2 --> APP
     V3 --> APP
+    V4 --> APP
     APP <-->|"wss://"| UP
     APP -->|"HTTPS POST"| TG
 ```
 
 The app runs as a single long-lived Docker container that:
-- Starts automatically on boot (`restart: unless-stopped`)
-- Reads credentials from the mounted `.env` file
+- Starts automatically on boot (`restart: always`)
+- Reads credentials from `.env` or `conditions.json`
 - Persists alert history via the mounted `alerts.db` volume
 - Caches the instruments CSV to avoid re-downloading on restart
 
@@ -311,7 +302,7 @@ The app runs as a single long-lived Docker container that:
 | Aspect | Detail |
 |--------|--------|
 | **What** | Real-time NSE futures discount detector with Telegram alerts |
-| **Problem** | Manually monitoring futures-vs-spot pricing across 5 stocks is impractical |
+| **Problem** | Manually monitoring futures-vs-spot pricing across stocks is impractical |
 | **Solution** | Automated WebSocket-based surveillance with configurable thresholds |
 | **Signal** | Futures discount > 2% AND calendar spread between 0–0.2% |
 | **Noise Reduction** | 5 consecutive tick confirmation + 15-min cooldown per stock |

@@ -3,7 +3,6 @@ import sys
 from datetime import datetime, time
 import pytz
 import config
-from auth_server import load_token
 from instruments import download_instruments, get_active_contracts
 from calculator import compute_basis, compute_spread
 from alert_logic import AlertEngine
@@ -29,16 +28,9 @@ def main():
     init_db("alerts.db")
 
     # 2. Load access token
-    logger.info("Loading access token from token.txt...")
-    try:
-        token = load_token("token.txt")
-    except FileNotFoundError as e:
-        logger.error(str(e))
-        print("\n" + "!" * 80)
-        print("ERROR: Upstox access token missing.")
-        print("Please start the authentication server by running 'python auth_server.py'")
-        print("to authorize the application and generate token.txt.")
-        print("!" * 80 + "\n")
+    token = config.ANALYTICS_TOKEN
+    if not token:
+        logger.error("UPSTOX ANALYTICS_TOKEN is empty! Please set the ANALYTICS_TOKEN environment variable in your .env file.")
         sys.exit(1)
 
     # 3. Resolve active contracts

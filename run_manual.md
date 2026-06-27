@@ -1,77 +1,79 @@
 # Manual Run Guide for Futures‑Alert (Docker)
 
-This document explains how to **create the required `token.txt` file**, build the Docker image, and run the container on a Windows machine.
+This document explains how to configure, build, and run the containerized application on a machine.
 
 ---
 
 ## 1. Prerequisites
-- **Docker Desktop** installed and running (Windows version).
+- **Docker Desktop** installed and running.
 - **PowerShell** (or Command Prompt) with access to the project folder.
-- The project source located at `C:\Users\jal\Downloads\futures-alert\futures-alert`.
 
 ---
 
-## 2. Create `token.txt`
+## 2. Configuration Options
 
-You can obtain the `token.txt` access token either **automatically (recommended)** or **manually**.
+You can configure the application using either **`.env`** or **`conditions.json`**.
 
-### Method A: Automatically (Silent TOTP Login)
-If you have configured your credentials in `.env`:
-1. Open PowerShell and navigate to the project directory:
-   ```powershell
-   cd "C:\Users\jal\Downloads\futures-alert\futures-alert"
-   ```
-2. Activate your virtual environment and run the auth server:
-   ```powershell
-   .\venv\Scripts\activate
-   python auth_server.py
-   ```
-   The script will log in silently, save `token.txt` in the root folder, and exit immediately.
-
-### Method B: Manually (Browser Flow)
-If you don't have automatic login credentials:
-1. Run `python auth_server.py`.
-2. Follow the login URL printed in the terminal, authenticate in the browser, and the browser redirect will save `token.txt` automatically.
-*Alternatively*, you can manually paste your token:
-```powershell
-notepad token.txt
+### Option A: Using `.env` (Recommended for Local Dev)
+Ensure your `.env` contains the `ANALYTICS_TOKEN` and your Telegram details:
+```env
+ANALYTICS_TOKEN=your_upstox_analytics_token_here
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
 ```
-Paste the token, save and close.
+
+### Option B: Using `conditions.json` (Recommended for Production Config)
+Your `conditions.json` file should contain the configurations:
+```json
+{
+  "upstox": {
+    "ANALYTICS_TOKEN": "your_upstox_analytics_token_here"
+  },
+  "telegram": {
+    "TELEGRAM_BOT_TOKEN": "your_bot_token_here",
+    "TELEGRAM_CHAT_ID": "your_chat_id_here"
+  },
+  "thresholds": {
+    "basis_threshold": 2.0,
+    "spread_min": 0.0,
+    "spread_max": 0.5,
+    "breach_count_threshold": 5,
+    "cooldown_minutes": 15
+  },
+  "watchlist": [
+    "ALL"
+  ]
+}
+```
 
 ---
 
 ## 3. Build the Docker Image
-Make sure Docker Desktop is running, then build the image:
+Build the Docker image:
 ```powershell
-docker build -t futures-alert .
+docker build -t futures-alert:latest .
 ```
-- `-t futures-alert` tags the image with a friendly name.
-- The trailing `.` tells Docker to use the `Dockerfile` in the current folder.
+- `-t futures-alert:latest` tags the image.
+- A `.dockerignore` file exists to ensure local temporary files like virtual environments (`venv`) and cached databases (`alerts.db`, `instruments_cache.csv`) are ignored during context build.
 
 ---
 
 ## 4. Run the Container
-The container needs access to the `token.txt` file. Mount it as a volume so the code inside can read it.
+
+### Using Docker Compose (Recommended)
+Run using Docker Compose:
 ```powershell
-docker run --rm -v "${PWD}\token.txt:/app/token.txt" futures-alert
+docker-compose up -d --build
 ```
-- `--rm` automatically removes the container after it exits.
-- `-v "${PWD}\token.txt:/app/token.txt"` binds the host's `token.txt` into the container.
 
----
-
-## 5. Common Issues & Fixes
-- **Permission error when mounting** – Ensure Docker Desktop has file‑sharing permissions for the `C:\Users\jal\Downloads\futures-alert\futures-alert` folder (Docker Settings -> Resources -> File Sharing).
-- **Container crashes** – Check logs with:
-  ```powershell
-  docker logs <container‑id>
-  ```
-  Verify the mount path matches what the code reads (`/app/token.txt`).
-
----
-
-## 6. Summary Checklist
-- [ ] Configure `.env` file with credentials.
-- [ ] Run `python auth_server.py` to generate `token.txt`.
-- [ ] Run `docker build -t futures-alert .`
-- [ ] Run `docker run --rm -v "${PWD}\token.txt:/app/token.txt" futures-alert`
+### Using Raw Docker Run
+If running directly with `docker run`:
+```powershell
+docker run -d --name futures-alert \
+  -v "${PWD}/conditions.json:/app/conditions.json:ro" \
+  -v "${PWD}/alerts.db:/app/alerts.db" \
+  --env-file .env \
+  futures-alert:latest
+```
+- Mounts `conditions.json` as read-only.
+- Mounts `alerts.db` to persist user subscriptions and alert logs on the host.

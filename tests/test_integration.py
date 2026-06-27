@@ -9,6 +9,7 @@ import tempfile
 
 # ── Ensure we are in project root ────────────────────────────────────────────
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.getcwd())
 
 passed = 0
 failed = 0
@@ -36,8 +37,7 @@ def main():
     print("\n--- 1. config.py ---")
     try:
         import config
-        report("UPSTOX_CLIENT_ID loaded",     bool(config.UPSTOX_CLIENT_ID))
-        report("UPSTOX_CLIENT_SECRET loaded",  bool(config.UPSTOX_CLIENT_SECRET))
+        report("ANALYTICS_TOKEN loaded",        bool(config.ANALYTICS_TOKEN))
         report("TELEGRAM_BOT_TOKEN loaded",    bool(config.TELEGRAM_BOT_TOKEN))
         report("TELEGRAM_CHAT_ID loaded",      bool(config.TELEGRAM_CHAT_ID))
         report("WATCHLIST is a list",          isinstance(config.WATCHLIST, list) and len(config.WATCHLIST) > 0)
